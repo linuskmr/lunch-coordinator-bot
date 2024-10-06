@@ -6,10 +6,10 @@ from datetime import datetime, timedelta
 
 token = os.getenv("TELEGRAM_BOT_TOKEN")
 chat_id = os.getenv("TELEGRAM_CHAT_ID")
+thread_id = os.getenv("TELEGRAM_THREAD_ID")
+
 
 base_url = f"https://api.telegram.org/bot{token}/"
-
-# print(requests.get(base_url + "getUpdates").json())
 
 today = datetime.now()
 tomorrow = today + timedelta(days=1)
@@ -19,6 +19,7 @@ options = ["11-12h", "12-13h", "13-14h", "14-15h"]
 
 send_poll_result = requests.post(base_url + "sendPoll", json = {
 	"chat_id": chat_id,
+	"message_thread_id": thread_id,
 	"question": question,
 	"options": options,
 	"allows_multiple_answers": True,
