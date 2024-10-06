@@ -19,5 +19,5 @@ Since running the script manually every day doesn't make it very useful, it make
 ```
 $ crontab -e
 # Add the following line:
-0 17 * * 0-4 env TELEGRAM_BOT_TOKEN="..." TELEGRAM_CHAT_ID="..." TELEGRAM_THREAD_ID="..." lunch-coordinator-bot/main.py
+0 17 * * 0-4 env TELEGRAM_BOT_TOKEN="..." TELEGRAM_CHAT_ID="..." TELEGRAM_THREAD_ID="..." python3 lunch-coordinator-bot/main.py
 ```
