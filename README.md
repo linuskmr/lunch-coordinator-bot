@@ -8,7 +8,7 @@ This python script sends a poll to a telegram chat to coordinate the lunch time 
 After creating a bot as described in the [Telegram documentation about "BotFather"](https://core.telegram.org/bots/features#botfather), the python script [`main.py`](main.py) can be invoked while passing the bot token, the chat id and optionally the thread id (for supergroups/forums) as environment variables:
 
 ```bash
-TELEGRAM_BOT_TOKEN="..." TELEGRAM_CHAT_ID="..." TELEGRAM_THREAD_ID="..." lunch-coordinator-bot/main.py
+TELEGRAM_BOT_TOKEN="..." TELEGRAM_CHAT_ID="..." TELEGRAM_THREAD_ID="..." python3 lunch-coordinator-bot/main.py
 ```
 
 
