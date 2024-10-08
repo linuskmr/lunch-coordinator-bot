@@ -15,7 +15,7 @@ today = datetime.now()
 tomorrow = today + timedelta(days=1)
 
 question = f"Lunch {tomorrow.strftime('%A (%d.%m.%Y)')}"
-options = ["11-12h", "12-13h", "13-14h", "14-15h"]
+options = ["11-12h", "12-13h", "13-14h", "14-15h", "later/other"]
 
 send_poll_result = requests.post(base_url + "sendPoll", json = {
 	"chat_id": chat_id,
