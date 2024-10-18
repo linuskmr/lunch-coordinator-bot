@@ -35,14 +35,14 @@ BASE_URL = "https://kitchen.kanttiinit.fi"
 
 
 @dataclass
-class Restaurant(ABC):
+class Restaurant:
     """Generic Restaurant class."""
 
     pass
 
 
 @dataclass
-class Menu(ABC):
+class Menu:
     """Generic Menu class."""
 
     pass
@@ -84,6 +84,7 @@ class MenuManager(ABC, Generic[MENU_TYPE]):
 # ---------------- Class Implementations ------------
 
 
+@dataclass
 class KanttiinitRestaurant(Restaurant):
     """Definition of the Kanttiinit Restaurant object.
 
