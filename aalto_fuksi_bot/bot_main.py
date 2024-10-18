@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 import logging
 import os
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, fields
 from datetime import date, timedelta
+from typing import Generic, TypeVar
 
 import requests
 from dotenv import load_dotenv
-from telegram import BotCommand, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
@@ -29,11 +31,68 @@ if not TOKEN:
 
 BASE_URL = "https://kitchen.kanttiinit.fi"
 
-# ------------- PARSING --------------------
+# ------------- Interface --------------------
 
 
 @dataclass
-class Restaurant:
+class Restaurant(ABC):
+    """Generic Restaurant class."""
+
+    pass
+
+
+@dataclass
+class Menu(ABC):
+    """Generic Menu class."""
+
+    pass
+
+
+MENU_TYPE = TypeVar("MENU_TYPE", bound=Menu)
+RES_TYPE = TypeVar("RES_TYPE", bound=Restaurant)
+
+
+class RestaurantManager(ABC, Generic[RES_TYPE]):
+    """Restaurant manager interface."""
+
+    _rest: dict[str, RES_TYPE] = {}
+
+    @classmethod
+    def restaurants(cls) -> dict[str, RES_TYPE]:
+        """Singleton for a dictionary of restaurants."""
+        if not cls._rest:
+            cls._load_restaurants()
+        return cls._rest
+
+    @classmethod
+    @abstractmethod
+    def _load_restaurants(cls):
+        raise NotImplemented()
+
+
+class MenuManager(ABC, Generic[MENU_TYPE]):
+    """Menu manager interface."""
+
+    @staticmethod
+    @abstractmethod
+    def get_restaurant_menu(
+        restaurant_id: int | str, d: str = str(date.today())
+    ) -> list[MENU_TYPE]:
+        raise NotImplemented
+
+
+# ---------------- Class Implementations ------------
+
+
+class KanttiinitRestaurant(Restaurant):
+    """Definition of the Kanttiinit Restaurant object.
+
+    Source schema can be found here:
+        https://github.com/Kanttiinit/kitchen/blob/master/schema/restaurant.json
+
+    Some irrelevant attributes were omitted.
+    """
+
     id: str
     name: str
     url: str
@@ -47,40 +106,44 @@ class Restaurant:
                 setattr(self, k, v)
 
 
-class RestaurantManager:
-    _rest: dict[str, Restaurant] = {}
-
-    @classmethod
-    def restaurants(cls) -> dict[str, Restaurant]:
-        """Singleton for a dictionary of restaurants."""
-        if not cls._rest:
-            cls._load_restaurants()
-        return cls._rest
+class KanttiinitRestaurantManager(RestaurantManager[KanttiinitRestaurant]):
 
     @classmethod
     def _load_restaurants(cls):
         res = requests.get(url=f"{BASE_URL}/areas", params={"lang": "en"})
-        otamiemi_area = [i for i in json.loads(res.text) if i["name"] == "Otaniemi"]
+        otamiemi_area = [area for area in json.loads(res.text) if area["name"] == "Otaniemi"]
         cls._rest = {
-            str(i["id"]): Restaurant(**i) for i in otamiemi_area[0]["restaurants"]
+            str(rest["id"]): KanttiinitRestaurant(**rest)
+            for rest in otamiemi_area[0]["restaurants"]
         }
 
 
 @dataclass
-class Menu:
+class KanttiinitMenu(Menu):
+    """Definition of the Kanttiinit Menu object.
+
+    Source schema can be found here:
+        https://github.com/Kanttiinit/kitchen/blob/master/schema/menu.json
+    """
     title: str
     properties: list[str]
+
+
+class KanttiinitMenuManager(MenuManager[KanttiinitMenu]):
 
     @staticmethod
     def get_restaurant_menu(
         restaurant_id: int | str, d: str = str(date.today())
-    ) -> list[Menu]:
+    ) -> list[KanttiinitMenu]:
         """Get a menu for the given canteen and date."""
         res = requests.get(
             url=f"{BASE_URL}/menus",
             params={"restaurants": restaurant_id, "days": str(d), "lang": "en"},
         )
-        return [Menu(**i) for i in json.loads(res.text)[str(restaurant_id)].get(d, [])]
+        return [
+            KanttiinitMenu(**menu)
+            for menu in json.loads(res.text)[str(restaurant_id)].get(d, [])
+        ]
 
 
 # ------------- BOT --------------------
@@ -97,7 +160,7 @@ def generate_cancel_send_buttons(callback_suffix: str) -> list[InlineKeyboardBut
 
 def generate_canteen_buttons(callback_prefix: str) -> InlineKeyboardMarkup:
     """Generate the canteen picker buttons."""
-    rest = list(RestaurantManager.restaurants().values())
+    rest = list(KanttiinitRestaurantManager.restaurants().values())
 
     # divide buttons into two columns
     keyboard = [
@@ -156,9 +219,8 @@ async def send_handler(update: Update, _: ContextTypes.DEFAULT_TYPE):
     message = "Command not found"
     if op == "opening_hours" or op == "menu":
         message = orig_msg.split("\n")
-        message = "<b>{}</b>\n<code>{}</code>".format(
-            message[0], "\n".join(message[1:])
-        )
+        content = "\n".join(message[1:])
+        message = f"<b>{message[0]}</b>\n<code>{content}</code>"
     elif op == "link":
         message = orig_msg
 
@@ -176,7 +238,9 @@ async def opening_hours_handler(update: Update, _: ContextTypes.DEFAULT_TYPE):
         return
 
     # generate all the buttons
-    rest = RestaurantManager.restaurants()[query.data.removeprefix("opening_hours_")]
+    rest = KanttiinitRestaurantManager.restaurants()[
+        query.data.removeprefix("opening_hours_")
+    ]
     reply_markup = InlineKeyboardMarkup([generate_cancel_send_buttons("opening_hours")])
 
     # generate the message
@@ -262,11 +326,13 @@ async def menu_display_handler(update: Update, _: ContextTypes.DEFAULT_TYPE):
 
     def _generate_message(_id: str, _date: str) -> str:
         """Generate a message containing canteen's menu."""
-        message = f"<b>{RestaurantManager.restaurants()[_id].name} ({_date})</b>\n"
+        message = (
+            f"<b>{KanttiinitRestaurantManager.restaurants()[_id].name} ({_date})</b>\n"
+        )
 
         message += "<code>"
         counter = 1
-        for m in Menu.get_restaurant_menu(_id, _date):
+        for m in KanttiinitMenuManager.get_restaurant_menu(_id, _date):
             title = m.title.strip()
             message += f"{counter}. {title}"
             counter += 1
@@ -329,10 +395,9 @@ async def canteens(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def post_init(application: Application):
     """Set the command help."""
-    commands = [
-        ("canteens", "Otaniemi canteen commands.")
-    ]
+    commands = [("canteens", "Otaniemi canteen commands.")]
     await application.bot.set_my_commands(commands)
+
 
 def main():
     app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
