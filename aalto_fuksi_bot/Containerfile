@@ -1,0 +1,9 @@
+FROM docker.io/library/python:3.10.15-alpine3.20
+
+WORKDIR /bot_src
+COPY ./requirements.txt requirements.txt
+COPY ./bot_main.py bot_main.py
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+CMD ["python", "bot_main.py"]
