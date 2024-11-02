@@ -381,7 +381,7 @@ async def canteens(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # remove the command message sent by the user
     if not update.message:
         return
-    await context.bot.delete_message(update.message.chat_id, update.message.id)
+    # await context.bot.delete_message(update.message.chat_id, update.message.id)
 
     options = ["Link", "Menu", "Opening Hours", "Cancel"]
     keyboard = [
